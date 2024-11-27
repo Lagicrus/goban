@@ -13,6 +13,17 @@ enum Status {
   OUT = 4
 }
 
+interface NeighbourStatus {
+  status: Status;
+  position: [number, number];
+}
+
+function arrayContainsArray(mainArray: any[], innerArray: any[]) {
+  return mainArray.some((element) => {
+    return JSON.stringify(element) === JSON.stringify(innerArray);
+  })
+}
+
 class Goban {
   goban: string[];
 
@@ -39,20 +50,63 @@ class Goban {
     throw new Error(`Unknown goban value ${this.goban[y][x]}`);
   }
 
+  get_neighbour_status(x: number, y: number): NeighbourStatus {
+    return {
+      status: this.get_status(x, y),
+      position: [x, y],
+    };
+  }
+
   is_taken(x: number, y: number) {
-    const topPositionStatus = this.get_status(x, y - 1);
-    const rightPositionStatus = this.get_status(x + 1, y);
-    const leftPositionStatus = this.get_status(x - 1, y);
-    const bottomPositionStatus = this.get_status(x, y + 1);
+    const topPositionStatus = this.get_neighbour_status(x, y - 1); //[this.get_status(x, y - 1), [x, y - 1]];
+    const rightPositionStatus = this.get_neighbour_status(x + 1, y); //[this.get_status(x + 1, y), [x + 1, y]];
+    const leftPositionStatus = this.get_neighbour_status(x - 1, y); //[this.get_status(x - 1, y), [x - 1, y]];
+    const bottomPositionStatus = this.get_neighbour_status(x, y + 1); //[this.get_status(x, y + 1), [x, y + 1]];
+    const selfStatus = this.get_status(x, y);
 
-    const statuses = [topPositionStatus, rightPositionStatus, leftPositionStatus, bottomPositionStatus];
+    const neighbourStatuses = [topPositionStatus, rightPositionStatus, leftPositionStatus, bottomPositionStatus];
+    const defaultFilterList = [Status.WHITE, Status.BLACK, Status.OUT];
+    const filterListNotSelf = defaultFilterList.filter(status => status !== selfStatus);
 
-    // If the stone is surrounded by stones OR outside the board
-    if (statuses.every(status => [Status.WHITE, Status.BLACK, Status.OUT].includes(status))) {
+    // If the stone is surrounded by stones that are not the same colour as it OR outside the board
+    if (neighbourStatuses.every(status => filterListNotSelf.includes(status.status))) {
       return true
     }
 
-    return false;
+    if (neighbourStatuses.some(status => status.status === Status.EMPTY)) {
+      return false;
+    }
+
+    const sameNeighbours = neighbourStatuses.filter(status => status.status === selfStatus);
+    let toCheckNeighbours = sameNeighbours;
+    // Keep a check of what we have already checked so we don't check it again
+    // Initialised with the current position
+    let checkedNeighbours = [[x,y]];
+    // We don't test for sameNeighbours.length == 0 because we already checked for that in the .every test
+    while(toCheckNeighbours.length > 0) {
+      // We can cast to NeighbourStatus as we know it will always be a NeighbourStatus
+      // due to the while .length > 0 check
+      const checkingNeighbour = (toCheckNeighbours.shift() as NeighbourStatus);
+      checkedNeighbours.push(checkingNeighbour.position);
+
+      const topPositionStatus = this.get_neighbour_status(checkingNeighbour.position[0], checkingNeighbour.position[1] - 1);
+      const rightPositionStatus = this.get_neighbour_status(checkingNeighbour.position[0] + 1, checkingNeighbour.position[1]);
+      const leftPositionStatus = this.get_neighbour_status(checkingNeighbour.position[0] - 1, checkingNeighbour.position[1]);
+      const bottomPositionStatus = this.get_neighbour_status(checkingNeighbour.position[0], checkingNeighbour.position[1] + 1);
+
+      const neighbourStatuses = [topPositionStatus, rightPositionStatus, leftPositionStatus, bottomPositionStatus];
+      if(neighbourStatuses.some(status => status.status === Status.EMPTY)) {
+        return false;
+      }
+
+      neighbourStatuses.forEach(neighbour => {
+        if (!filterListNotSelf.includes(neighbour.status) && !arrayContainsArray(checkedNeighbours, neighbour.position)) {
+          toCheckNeighbours.push(neighbour);
+        }
+      })
+    }
+
+    return true;
   }
 }
 
