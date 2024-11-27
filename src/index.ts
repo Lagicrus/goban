@@ -18,13 +18,6 @@ interface NeighbourStatus {
   position: [number, number];
 }
 
-// Simple helper function to check if an array contains another array
-function arrayContainsArray(mainArray: any[], innerArray: any[]) {
-  return mainArray.some((element) => {
-    return JSON.stringify(element) === JSON.stringify(innerArray);
-  })
-}
-
 export class Goban {
   goban: string[];
 
@@ -101,12 +94,12 @@ export class Goban {
     let toCheckNeighbours = neighbourStatuses.filter(neighbour => neighbour.status === selfStatus);
     // Keep a check of what we have already checked so we don't check it again
     // Initialised with the current position
-    let checkedNeighbours = [[x,y]];
+    let checkedNeighbours = new Set<string>();
     while(toCheckNeighbours.length > 0) {
       // We can cast to NeighbourStatus as we know it will always be a NeighbourStatus
       // due to the while .length > 0 check
       const checkingNeighbour = (toCheckNeighbours.shift() as NeighbourStatus);
-      checkedNeighbours.push(checkingNeighbour.position);
+      checkedNeighbours.add(`${checkingNeighbour.position[0]},${checkingNeighbour.position[1]}`);
 
       const neighbourStatuses = this.get_neighbour_statuses(checkingNeighbour.position[0], checkingNeighbour.position[1])
       // If the current stone has an empty neighbour, it is not taken, bail early
@@ -115,7 +108,7 @@ export class Goban {
       }
 
       neighbourStatuses.forEach(neighbour => {
-        if (neighbour.status === selfStatus && !arrayContainsArray(checkedNeighbours, neighbour.position)) {
+        if (neighbour.status === selfStatus && !checkedNeighbours.has(`${neighbour.position[0]},${neighbour.position[1]}`)) {
           toCheckNeighbours.push(neighbour);
         }
       })
